@@ -112,6 +112,96 @@ function generateId() {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
 }
 
+// --- Model Avatar Colors (unique per model for visual distinction) ---
+
+const MODEL_GRADIENTS: Record<string, { from: string; to: string; accent: string }> = {
+  'model-1':  { from: '#f8e8d0', to: '#e8c9a0', accent: '#c9a06a' },
+  'model-2':  { from: '#d4e4f7', to: '#a8c4e0', accent: '#6a8fb5' },
+  'model-3':  { from: '#fce4e4', to: '#f0b8b8', accent: '#d47070' },
+  'model-4':  { from: '#e0eed8', to: '#b8d4a8', accent: '#7aaa5c' },
+  'model-5':  { from: '#f5e6d0', to: '#e0c4a0', accent: '#c49a60' },
+  'model-6':  { from: '#dde8f0', to: '#b0c8dc', accent: '#6a94b4' },
+  'model-7':  { from: '#f0e8f4', to: '#d4c0e0', accent: '#a080b8' },
+  'model-8':  { from: '#e4eae0', to: '#c0d0b8', accent: '#8aaa74' },
+  'model-9':  { from: '#f4e0d0', to: '#e0bca0', accent: '#c0946a' },
+  'model-10': { from: '#e8dce0', to: '#d0b8c0', accent: '#a88090' },
+  'model-11': { from: '#e0e8e4', to: '#b4ccc0', accent: '#70a090' },
+  'model-12': { from: '#f0ece0', to: '#dcd4c0', accent: '#b8aa88' },
+}
+
+function ModelAvatar({ model, size = 'md' }: { model: AIModelType; size?: 'sm' | 'md' | 'lg' }) {
+  const gradient = MODEL_GRADIENTS[model.id] || { from: '#e8e0d8', to: '#d0c4b8', accent: '#a09080' }
+  const initials = model.name.split(' ').map(n => n[0]).join('').toUpperCase()
+
+  const sizeClasses = {
+    sm: 'w-full aspect-[3/4]',
+    md: 'w-full aspect-[3/4]',
+    lg: 'w-full aspect-[3/4]',
+  }
+
+  const iconSizes = {
+    sm: 'w-8 h-8',
+    md: 'w-12 h-12',
+    lg: 'w-20 h-20',
+  }
+
+  const initialSizes = {
+    sm: 'text-xs',
+    md: 'text-sm',
+    lg: 'text-xl',
+  }
+
+  const silhouetteSizes = {
+    sm: 'w-16 h-16',
+    md: 'w-24 h-24',
+    lg: 'w-36 h-36',
+  }
+
+  return (
+    <div
+      className={`${sizeClasses[size]} relative overflow-hidden flex flex-col items-center justify-center`}
+      style={{ background: `linear-gradient(160deg, ${gradient.from} 0%, ${gradient.to} 100%)` }}
+    >
+      {/* Silhouette shape */}
+      <div
+        className={`${silhouetteSizes[size]} rounded-full opacity-[0.18] absolute`}
+        style={{
+          background: `radial-gradient(circle at 50% 35%, ${gradient.accent} 0%, transparent 70%)`,
+          top: '15%',
+        }}
+      />
+      {/* Head circle */}
+      <div
+        className={`${iconSizes[size]} rounded-full flex items-center justify-center mb-1 relative z-10`}
+        style={{ backgroundColor: gradient.accent + '30', border: `2px solid ${gradient.accent}50` }}
+      >
+        <FiUser className={`${size === 'sm' ? 'w-4 h-4' : size === 'md' ? 'w-5 h-5' : 'w-8 h-8'}`} style={{ color: gradient.accent }} />
+      </div>
+      {/* Initials badge */}
+      <div
+        className={`${initialSizes[size]} font-serif tracking-[0.15em] font-normal relative z-10 mt-1`}
+        style={{ color: gradient.accent }}
+      >
+        {initials}
+      </div>
+      {/* Gender indicator dot */}
+      <div className="absolute top-2 left-2 flex items-center gap-1">
+        <div
+          className="w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: gradient.accent }}
+        />
+      </div>
+      {/* Decorative corner accent */}
+      <div
+        className="absolute bottom-0 right-0 w-8 h-8 opacity-20"
+        style={{
+          background: `linear-gradient(135deg, transparent 50%, ${gradient.accent} 50%)`,
+        }}
+      />
+    </div>
+  )
+}
+
 // --- Sub-components ---
 
 function Sidebar({ activeScreen, onNavigate }: { activeScreen: string; onNavigate: (screen: string) => void }) {
@@ -569,19 +659,19 @@ function NewPhotoshootScreen({
                       <button
                         key={model.id}
                         onClick={() => onModelSelect(model)}
-                        className={`text-left p-3 border transition-all duration-200 ${isSelected ? 'border-primary bg-primary/5 shadow-sm' : 'border-border hover:border-primary/40 hover:bg-secondary/30'}`}
+                        className={`text-left border transition-all duration-200 overflow-hidden ${isSelected ? 'border-primary bg-primary/5 shadow-sm' : 'border-border hover:border-primary/40 hover:bg-secondary/30'}`}
                       >
-                        <div className="aspect-[3/4] bg-muted mb-2 flex items-center justify-center">
-                          <FiUser className="w-6 h-6 text-muted-foreground" />
+                        <ModelAvatar model={model} size="sm" />
+                        <div className="px-3 py-2">
+                          <p className="text-xs font-light tracking-wider truncate">{model.name}</p>
+                          <p className="text-[10px] text-muted-foreground font-light tracking-wider mt-0.5">{model.gender} / {model.ageRange}</p>
+                          {isSelected && (
+                            <div className="mt-1 flex items-center gap-1 text-primary">
+                              <FiCheck className="w-3 h-3" />
+                              <span className="text-[10px] tracking-wider">Selected</span>
+                            </div>
+                          )}
                         </div>
-                        <p className="text-xs font-light tracking-wider truncate">{model.name}</p>
-                        <p className="text-[10px] text-muted-foreground font-light tracking-wider mt-0.5">{model.gender} / {model.ageRange}</p>
-                        {isSelected && (
-                          <div className="mt-1 flex items-center gap-1 text-primary">
-                            <FiCheck className="w-3 h-3" />
-                            <span className="text-[10px] tracking-wider">Selected</span>
-                          </div>
-                        )}
                       </button>
                     )
                   })}
@@ -785,11 +875,11 @@ function ModelGalleryScreen({ favoriteModels, onToggleFavorite }: { favoriteMode
               const isFav = favoriteModels.includes(model.id)
               return (
                 <Card key={model.id} className="border border-border shadow-sm overflow-hidden group cursor-pointer" onClick={() => setSelectedModelDetail(model)}>
-                  <div className="aspect-[3/4] bg-muted relative flex items-center justify-center">
-                    <FiUser className="w-10 h-10 text-muted-foreground" />
+                  <div className="relative">
+                    <ModelAvatar model={model} size="md" />
                     <button
                       onClick={(e) => { e.stopPropagation(); onToggleFavorite(model.id) }}
-                      className={`absolute top-2 right-2 w-7 h-7 flex items-center justify-center transition-colors ${isFav ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
+                      className={`absolute top-2 right-2 w-7 h-7 flex items-center justify-center transition-colors z-20 ${isFav ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
                     >
                       {isFav ? <FiHeart className="w-4 h-4 fill-current" /> : <FiHeart className="w-4 h-4" />}
                     </button>
@@ -820,8 +910,8 @@ function ModelGalleryScreen({ favoriteModels, onToggleFavorite }: { favoriteMode
             <DialogDescription className="text-xs tracking-wider font-light">{selectedModelDetail?.gender} / {selectedModelDetail?.ethnicity} / {selectedModelDetail?.ageRange}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="aspect-[3/4] bg-muted flex items-center justify-center">
-              <FiUser className="w-16 h-16 text-muted-foreground" />
+            <div className="aspect-[3/4] overflow-hidden">
+              {selectedModelDetail && <ModelAvatar model={selectedModelDetail} size="lg" />}
             </div>
             <div>
               <p className="text-xs tracking-wider uppercase font-light text-muted-foreground mb-1">Description</p>

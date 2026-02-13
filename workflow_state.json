@@ -1,0 +1,14 @@
+{
+  "agents": {
+    "photoshoot_generation_agent": {
+      "agent_id": "698f36250f0fd5392ca89bf4",
+      "name": "Photoshoot Generation Agent",
+      "type": "single",
+      "has_image_output": true,
+      "has_voice": false,
+      "has_file_output": false,
+      "has_knowledge_base": false,
+      "has_schedule": false
+    }
+  }
+}

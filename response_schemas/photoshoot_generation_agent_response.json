@@ -1,0 +1,28 @@
+{
+  "agent_name": "Photoshoot Generation Agent",
+  "agent_id": "698f36250f0fd5392ca89bf4",
+  "description": "Processes uploaded product images and combines them with selected AI model to generate photorealistic fashion photography. Handles garment placement, lighting matching, and realistic fabric rendering on the model.",
+  "agent_type": "json",
+  "accessor": "result",
+  "auto_generated": true,
+  "response_schema": {
+    "image_description": "string",
+    "product_details": "string",
+    "model_details": "string",
+    "styling_notes": "string"
+  },
+  "example_response": {
+    "image_description": "Description of the generated fashion photography image",
+    "product_details": "Details about the product shown in the image",
+    "model_details": "Details about the AI model in the generated image",
+    "styling_notes": "Notes about the styling, lighting, and composition"
+  },
+  "has_module_outputs": true,
+  "module_outputs_example": {
+    "artifact_files": [
+      {
+        "file_url": "https://example.com/image.png"
+      }
+    ]
+  }
+}

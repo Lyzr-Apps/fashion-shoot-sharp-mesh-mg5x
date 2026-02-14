@@ -129,7 +129,7 @@ const MODEL_GRADIENTS: Record<string, { from: string; to: string; accent: string
   'model-12': { from: '#f0ece0', to: '#dcd4c0', accent: '#b8aa88' },
 }
 
-function ModelAvatar({ model, size = 'md' }: { model: AIModelType; size?: 'sm' | 'md' | 'lg' }) {
+function ModelAvatar({ model, size = 'md', portraitUrl }: { model: AIModelType; size?: 'sm' | 'md' | 'lg'; portraitUrl?: string }) {
   const gradient = MODEL_GRADIENTS[model.id] || { from: '#e8e0d8', to: '#d0c4b8', accent: '#a09080' }
   const initials = model.name.split(' ').map(n => n[0]).join('').toUpperCase()
 
@@ -155,6 +155,19 @@ function ModelAvatar({ model, size = 'md' }: { model: AIModelType; size?: 'sm' |
     sm: 'w-16 h-16',
     md: 'w-24 h-24',
     lg: 'w-36 h-36',
+  }
+
+  if (portraitUrl) {
+    return (
+      <div className={`${sizeClasses[size]} relative overflow-hidden`}>
+        <img src={portraitUrl} alt={model.name} className="w-full h-full object-cover" />
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent py-2 px-3">
+          <span className={`${initialSizes[size]} font-serif tracking-[0.15em] text-white font-light`}>
+            {initials}
+          </span>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -362,6 +375,7 @@ function NewPhotoshootScreen({
   isGenerating,
   generationResult,
   statusMessage,
+  modelPortraits,
   onProductUpload,
   onRemoveProduct,
   onCategoryChange,
@@ -381,6 +395,7 @@ function NewPhotoshootScreen({
   isGenerating: boolean
   generationResult: { imageUrl: string; response: { image_description: string; product_details: string; model_details: string; styling_notes: string } } | null
   statusMessage: StatusMessage | null
+  modelPortraits: Record<string, string>
   onProductUpload: (file: File) => void
   onRemoveProduct: () => void
   onCategoryChange: (cat: string) => void
@@ -661,7 +676,7 @@ function NewPhotoshootScreen({
                         onClick={() => onModelSelect(model)}
                         className={`text-left border transition-all duration-200 overflow-hidden ${isSelected ? 'border-primary bg-primary/5 shadow-sm' : 'border-border hover:border-primary/40 hover:bg-secondary/30'}`}
                       >
-                        <ModelAvatar model={model} size="sm" />
+                        <ModelAvatar model={model} size="sm" portraitUrl={modelPortraits[model.id]} />
                         <div className="px-3 py-2">
                           <p className="text-xs font-light tracking-wider truncate">{model.name}</p>
                           <p className="text-[10px] text-muted-foreground font-light tracking-wider mt-0.5">{model.gender} / {model.ageRange}</p>
@@ -710,9 +725,18 @@ function NewPhotoshootScreen({
                 <p className="text-xs tracking-wider uppercase font-light text-muted-foreground">Model</p>
                 {selectedModel ? (
                   <div className="p-3 border border-border bg-secondary/30">
-                    <p className="text-sm font-light tracking-wider">{selectedModel.name}</p>
-                    <p className="text-xs text-muted-foreground font-light tracking-wider mt-1">{selectedModel.gender} / {selectedModel.ethnicity}</p>
-                    <p className="text-xs text-muted-foreground font-light mt-1 leading-relaxed">{selectedModel.description}</p>
+                    <div className="flex items-start gap-3">
+                      {modelPortraits[selectedModel.id] ? (
+                        <div className="w-14 h-18 flex-shrink-0 overflow-hidden">
+                          <img src={modelPortraits[selectedModel.id]} alt={selectedModel.name} className="w-14 h-[72px] object-cover" />
+                        </div>
+                      ) : null}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-light tracking-wider">{selectedModel.name}</p>
+                        <p className="text-xs text-muted-foreground font-light tracking-wider mt-1">{selectedModel.gender} / {selectedModel.ethnicity}</p>
+                        <p className="text-xs text-muted-foreground font-light mt-1 leading-relaxed">{selectedModel.description}</p>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="p-3 border border-dashed border-border">
@@ -755,7 +779,19 @@ function NewPhotoshootScreen({
   )
 }
 
-function ModelGalleryScreen({ favoriteModels, onToggleFavorite }: { favoriteModels: string[]; onToggleFavorite: (id: string) => void }) {
+function ModelGalleryScreen({
+  favoriteModels,
+  onToggleFavorite,
+  modelPortraits,
+  onGeneratePortrait,
+  generatingPortrait,
+}: {
+  favoriteModels: string[]
+  onToggleFavorite: (id: string) => void
+  modelPortraits: Record<string, string>
+  onGeneratePortrait: (model: AIModelType) => void
+  generatingPortrait: string | null
+}) {
   const [searchQuery, setSearchQuery] = useState('')
   const [genderFilters, setGenderFilters] = useState<string[]>([])
   const [ethnicityFilters, setEthnicityFilters] = useState<string[]>([])
@@ -873,16 +909,39 @@ function ModelGalleryScreen({ favoriteModels, onToggleFavorite }: { favoriteMode
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
             {filteredModels.map((model) => {
               const isFav = favoriteModels.includes(model.id)
+              const hasPortrait = !!modelPortraits[model.id]
+              const isGeneratingThis = generatingPortrait === model.id
               return (
                 <Card key={model.id} className="border border-border shadow-sm overflow-hidden group cursor-pointer" onClick={() => setSelectedModelDetail(model)}>
                   <div className="relative">
-                    <ModelAvatar model={model} size="md" />
+                    <ModelAvatar model={model} size="md" portraitUrl={modelPortraits[model.id]} />
                     <button
                       onClick={(e) => { e.stopPropagation(); onToggleFavorite(model.id) }}
                       className={`absolute top-2 right-2 w-7 h-7 flex items-center justify-center transition-colors z-20 ${isFav ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
                     >
                       {isFav ? <FiHeart className="w-4 h-4 fill-current" /> : <FiHeart className="w-4 h-4" />}
                     </button>
+                    {/* Generate Portrait overlay for cards without a portrait */}
+                    {!hasPortrait && !isGeneratingThis && (
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100 z-10">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onGeneratePortrait(model) }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-background/90 border border-border text-foreground tracking-wider text-xs font-light transition-all duration-200 hover:bg-background"
+                        >
+                          <HiOutlineSparkles className="w-3 h-3" />
+                          Generate Photo
+                        </button>
+                      </div>
+                    )}
+                    {/* Loading spinner overlay while generating */}
+                    {isGeneratingThis && (
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
+                        <div className="flex flex-col items-center gap-2">
+                          <FiRefreshCw className="w-5 h-5 text-white animate-spin" />
+                          <span className="text-[10px] text-white tracking-wider font-light">Generating...</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <CardContent className="pt-3 pb-3 px-3">
                     <p className="text-xs font-light tracking-wider">{model.name}</p>
@@ -910,8 +969,29 @@ function ModelGalleryScreen({ favoriteModels, onToggleFavorite }: { favoriteMode
             <DialogDescription className="text-xs tracking-wider font-light">{selectedModelDetail?.gender} / {selectedModelDetail?.ethnicity} / {selectedModelDetail?.ageRange}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="aspect-[3/4] overflow-hidden">
-              {selectedModelDetail && <ModelAvatar model={selectedModelDetail} size="lg" />}
+            <div className="aspect-[3/4] overflow-hidden relative">
+              {selectedModelDetail && <ModelAvatar model={selectedModelDetail} size="lg" portraitUrl={selectedModelDetail ? modelPortraits[selectedModelDetail.id] : undefined} />}
+              {/* Generate portrait button overlay in dialog */}
+              {selectedModelDetail && !modelPortraits[selectedModelDetail.id] && generatingPortrait !== selectedModelDetail.id && (
+                <div className="absolute bottom-3 left-3 right-3 flex justify-center">
+                  <button
+                    onClick={() => { if (selectedModelDetail) onGeneratePortrait(selectedModelDetail) }}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-background/90 border border-border text-foreground tracking-wider text-xs font-light transition-all duration-200 hover:bg-background"
+                  >
+                    <HiOutlineSparkles className="w-3.5 h-3.5" />
+                    Generate Portrait
+                  </button>
+                </div>
+              )}
+              {/* Loading state in dialog */}
+              {selectedModelDetail && generatingPortrait === selectedModelDetail.id && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <FiRefreshCw className="w-6 h-6 text-white animate-spin" />
+                    <span className="text-xs text-white tracking-wider font-light">Generating portrait...</span>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <p className="text-xs tracking-wider uppercase font-light text-muted-foreground mb-1">Description</p>
@@ -923,6 +1003,28 @@ function ModelGalleryScreen({ favoriteModels, onToggleFavorite }: { favoriteMode
               <Badge variant="secondary" className="text-xs font-light tracking-wider">{selectedModelDetail?.ageRange}</Badge>
             </div>
           </div>
+          <DialogFooter>
+            {selectedModelDetail && !modelPortraits[selectedModelDetail.id] && generatingPortrait !== selectedModelDetail.id && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { if (selectedModelDetail) onGeneratePortrait(selectedModelDetail) }}
+                className="tracking-wider text-xs font-light"
+              >
+                <HiOutlineSparkles className="mr-1 w-3 h-3" /> Generate Portrait
+              </Button>
+            )}
+            {selectedModelDetail && generatingPortrait === selectedModelDetail.id && (
+              <Button variant="outline" size="sm" disabled className="tracking-wider text-xs font-light">
+                <FiRefreshCw className="mr-1 w-3 h-3 animate-spin" /> Generating...
+              </Button>
+            )}
+            {selectedModelDetail && modelPortraits[selectedModelDetail.id] && (
+              <Badge variant="secondary" className="text-xs font-light tracking-wider">
+                <FiCheck className="mr-1 w-3 h-3" /> Portrait Generated
+              </Badge>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
@@ -1111,6 +1213,8 @@ export default function Page() {
   const [favoriteModels, setFavoriteModels] = useState<string[]>([])
   const [statusMessage, setStatusMessage] = useState<StatusMessage | null>(null)
   const [sampleDataOn, setSampleDataOn] = useState(false)
+  const [modelPortraits, setModelPortraits] = useState<Record<string, string>>({})
+  const [generatingPortrait, setGeneratingPortrait] = useState<string | null>(null)
 
   // Sample data effect
   useEffect(() => {
@@ -1168,6 +1272,48 @@ export default function Page() {
     setProductPreview(null)
   }, [productPreview])
 
+  const handleGeneratePortrait = useCallback(async (model: AIModelType) => {
+    setGeneratingPortrait(model.id)
+
+    try {
+      const promptMessage = `Generate a photorealistic professional model agency headshot/portrait photograph.
+
+Model Details:
+- Name: ${model.name}
+- Gender: ${model.gender}
+- Ethnicity: ${model.ethnicity}
+- Age Range: ${model.ageRange}
+- Physical Description: ${model.description}
+
+Generate a stunning, photorealistic close-up portrait photograph of this fashion model. The image should look like a professional model agency composite card photo. Use professional portrait lighting (Rembrandt or butterfly lighting), clean neutral studio background, and capture the model from chest up. The portrait should showcase the model's distinctive features as described. Make it look like a real photograph, not an illustration or rendering.`
+
+      const result = await callAIAgent(promptMessage, AGENT_ID)
+
+      if (!result?.success) {
+        setStatusMessage({ type: 'error', text: `Failed to generate portrait for ${model.name}. Please try again.` })
+        setGeneratingPortrait(null)
+        return
+      }
+
+      const artifactFiles = result?.module_outputs?.artifact_files
+      let imageUrl = ''
+      if (Array.isArray(artifactFiles) && artifactFiles.length > 0) {
+        imageUrl = artifactFiles[0]?.file_url ?? ''
+      }
+
+      if (imageUrl) {
+        setModelPortraits(prev => ({ ...prev, [model.id]: imageUrl }))
+        setStatusMessage({ type: 'success', text: `Portrait generated for ${model.name}` })
+      } else {
+        setStatusMessage({ type: 'error', text: `No portrait image returned for ${model.name}. Please try again.` })
+      }
+    } catch (err) {
+      setStatusMessage({ type: 'error', text: `An unexpected error occurred generating portrait for ${model.name}.` })
+    } finally {
+      setGeneratingPortrait(null)
+    }
+  }, [])
+
   const handleGenerate = useCallback(async () => {
     if (!productFile || !selectedModel || !selectedCategory) return
 
@@ -1188,20 +1334,25 @@ export default function Page() {
       setStatusMessage({ type: 'info', text: 'Generating your photoshoot...' })
 
       // Step 2: Build the prompt
-      const promptMessage = `Generate a photorealistic fashion photography image.
+      const promptMessage = `Generate a photorealistic fashion photography image that combines the uploaded apparel with the AI model described below.
+
+CRITICAL INSTRUCTIONS:
+- The generated image MUST show the model described below WEARING the exact apparel from the uploaded product image
+- Reproduce the apparel faithfully on the model: same color, same fabric texture, same design details
+- The model's appearance must exactly match the physical description provided
 
 Product Category: ${selectedCategory}
-Product Description: A ${selectedCategory.toLowerCase()} apparel item uploaded by the user.
-${additionalNotes ? `Additional Notes: ${additionalNotes}` : ''}
+Product: The apparel item shown in the uploaded image. Analyze it carefully and reproduce it exactly on the model.
+${additionalNotes ? `Additional Styling Notes: ${additionalNotes}` : ''}
 
-AI Model Details:
+AI Model to wear the apparel:
 - Name: ${selectedModel.name}
 - Gender: ${selectedModel.gender}
 - Ethnicity: ${selectedModel.ethnicity}
 - Age Range: ${selectedModel.ageRange}
-- Physical Description: ${selectedModel.description}
+- Physical Appearance: ${selectedModel.description}
 
-Please generate a professional studio-quality fashion photograph of this model wearing the uploaded product. Ensure natural garment placement, realistic fabric draping, accurate color reproduction, and professional studio lighting.`
+Generate a professional studio-quality fashion photograph showing this exact model wearing the uploaded apparel. The final image should look like an editorial fashion photograph or high-end e-commerce product shot with the model wearing the garment naturally.`
 
       // Step 3: Call the agent
       const result = await callAIAgent(promptMessage, AGENT_ID, { assets: uploadResult.asset_ids })
@@ -1329,6 +1480,13 @@ Please generate a professional studio-quality fashion photograph of this model w
             </div>
           </div>
 
+          {/* Status message bar */}
+          {statusMessage && activeScreen !== 'new-photoshoot' && (
+            <div className={`mb-4 p-3 text-sm tracking-wider font-light ${statusMessage.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : statusMessage.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-blue-50 text-blue-800 border border-blue-200'}`}>
+              {statusMessage.text}
+            </div>
+          )}
+
           {/* Screens */}
           {activeScreen === 'dashboard' && (
             <DashboardScreen generations={generations} onNavigate={setActiveScreen} />
@@ -1343,6 +1501,7 @@ Please generate a professional studio-quality fashion photograph of this model w
               isGenerating={isGenerating}
               generationResult={generationResult}
               statusMessage={statusMessage}
+              modelPortraits={modelPortraits}
               onProductUpload={handleProductUpload}
               onRemoveProduct={handleRemoveProduct}
               onCategoryChange={setSelectedCategory}
@@ -1359,6 +1518,9 @@ Please generate a professional studio-quality fashion photograph of this model w
             <ModelGalleryScreen
               favoriteModels={favoriteModels}
               onToggleFavorite={handleToggleFavorite}
+              modelPortraits={modelPortraits}
+              onGeneratePortrait={handleGeneratePortrait}
+              generatingPortrait={generatingPortrait}
             />
           )}
           {activeScreen === 'my-generations' && (

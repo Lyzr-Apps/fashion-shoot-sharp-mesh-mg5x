@@ -785,12 +785,14 @@ function ModelGalleryScreen({
   modelPortraits,
   onGeneratePortrait,
   generatingPortrait,
+  portraitGenProgress,
 }: {
   favoriteModels: string[]
   onToggleFavorite: (id: string) => void
   modelPortraits: Record<string, string>
   onGeneratePortrait: (model: AIModelType) => void
   generatingPortrait: string | null
+  portraitGenProgress: { current: number; total: number; isRunning: boolean; failed: number; errors: string[] }
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [genderFilters, setGenderFilters] = useState<string[]>([])
@@ -832,6 +834,55 @@ function ModelGalleryScreen({
           />
         </div>
       </div>
+
+      {portraitGenProgress.isRunning && (
+        <Card className="border border-primary/30 shadow-sm bg-secondary/30">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-4">
+              <FiRefreshCw className="w-4 h-4 text-primary animate-spin flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm tracking-wider font-light text-foreground">
+                    Generating model portraits...
+                  </p>
+                  <span className="text-xs text-muted-foreground tracking-wider font-light">
+                    {portraitGenProgress.current} / {portraitGenProgress.total}
+                    {portraitGenProgress.failed > 0 && (
+                      <span className="text-destructive ml-2">({portraitGenProgress.failed} failed, retrying)</span>
+                    )}
+                  </span>
+                </div>
+                <Progress value={(portraitGenProgress.current / Math.max(portraitGenProgress.total, 1)) * 100} className="h-1" />
+                {portraitGenProgress.errors.length > 0 && (
+                  <p className="text-[10px] text-destructive mt-2 font-light tracking-wider">
+                    Last error: {portraitGenProgress.errors[portraitGenProgress.errors.length - 1]}
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!portraitGenProgress.isRunning && portraitGenProgress.failed > 0 && (
+        <Card className="border border-destructive/30 shadow-sm bg-destructive/5">
+          <CardContent className="py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-sm tracking-wider font-light text-foreground">
+                  {portraitGenProgress.failed} portrait{portraitGenProgress.failed !== 1 ? 's' : ''} failed to generate
+                </p>
+                {portraitGenProgress.errors.length > 0 && (
+                  <p className="text-[10px] text-muted-foreground mt-1 font-light tracking-wider">
+                    {portraitGenProgress.errors[portraitGenProgress.errors.length - 1]}
+                  </p>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground font-light tracking-wider">Hover over a model card to retry</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Filters sidebar */}
@@ -921,8 +972,16 @@ function ModelGalleryScreen({
                     >
                       {isFav ? <FiHeart className="w-4 h-4 fill-current" /> : <FiHeart className="w-4 h-4" />}
                     </button>
-                    {/* Generate Portrait overlay for cards without a portrait */}
-                    {!hasPortrait && !isGeneratingThis && (
+                    {/* Queued state: waiting for auto-generation */}
+                    {!hasPortrait && !isGeneratingThis && portraitGenProgress.isRunning && (
+                      <div className="absolute inset-0 bg-black/10 flex items-end justify-center z-10 pb-3">
+                        <span className="px-2 py-1 bg-background/80 border border-border text-[10px] text-muted-foreground tracking-wider font-light">
+                          <FiClock className="w-3 h-3 inline mr-1" />Queued
+                        </span>
+                      </div>
+                    )}
+                    {/* Generate Portrait overlay for cards without a portrait (only when batch gen is done) */}
+                    {!hasPortrait && !isGeneratingThis && !portraitGenProgress.isRunning && (
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100 z-10">
                         <button
                           onClick={(e) => { e.stopPropagation(); onGeneratePortrait(model) }}
@@ -971,8 +1030,8 @@ function ModelGalleryScreen({
           <div className="space-y-4">
             <div className="aspect-[3/4] overflow-hidden relative">
               {selectedModelDetail && <ModelAvatar model={selectedModelDetail} size="lg" portraitUrl={selectedModelDetail ? modelPortraits[selectedModelDetail.id] : undefined} />}
-              {/* Generate portrait button overlay in dialog */}
-              {selectedModelDetail && !modelPortraits[selectedModelDetail.id] && generatingPortrait !== selectedModelDetail.id && (
+              {/* Generate portrait button overlay in dialog (only when batch gen not running) */}
+              {selectedModelDetail && !modelPortraits[selectedModelDetail.id] && generatingPortrait !== selectedModelDetail.id && !portraitGenProgress.isRunning && (
                 <div className="absolute bottom-3 left-3 right-3 flex justify-center">
                   <button
                     onClick={() => { if (selectedModelDetail) onGeneratePortrait(selectedModelDetail) }}
@@ -981,6 +1040,14 @@ function ModelGalleryScreen({
                     <HiOutlineSparkles className="w-3.5 h-3.5" />
                     Generate Portrait
                   </button>
+                </div>
+              )}
+              {/* Queued state in dialog */}
+              {selectedModelDetail && !modelPortraits[selectedModelDetail.id] && generatingPortrait !== selectedModelDetail.id && portraitGenProgress.isRunning && (
+                <div className="absolute bottom-3 left-3 right-3 flex justify-center">
+                  <span className="px-3 py-1.5 bg-background/80 border border-border text-xs text-muted-foreground tracking-wider font-light">
+                    <FiClock className="w-3 h-3 inline mr-1" />Queued for generation
+                  </span>
                 </div>
               )}
               {/* Loading state in dialog */}
@@ -1004,7 +1071,7 @@ function ModelGalleryScreen({
             </div>
           </div>
           <DialogFooter>
-            {selectedModelDetail && !modelPortraits[selectedModelDetail.id] && generatingPortrait !== selectedModelDetail.id && (
+            {selectedModelDetail && !modelPortraits[selectedModelDetail.id] && generatingPortrait !== selectedModelDetail.id && !portraitGenProgress.isRunning && (
               <Button
                 variant="outline"
                 size="sm"
@@ -1013,6 +1080,11 @@ function ModelGalleryScreen({
               >
                 <HiOutlineSparkles className="mr-1 w-3 h-3" /> Generate Portrait
               </Button>
+            )}
+            {selectedModelDetail && !modelPortraits[selectedModelDetail.id] && generatingPortrait !== selectedModelDetail.id && portraitGenProgress.isRunning && (
+              <Badge variant="secondary" className="text-xs font-light tracking-wider">
+                <FiClock className="mr-1 w-3 h-3" /> Queued
+              </Badge>
             )}
             {selectedModelDetail && generatingPortrait === selectedModelDetail.id && (
               <Button variant="outline" size="sm" disabled className="tracking-wider text-xs font-light">
@@ -1215,6 +1287,97 @@ export default function Page() {
   const [sampleDataOn, setSampleDataOn] = useState(false)
   const [modelPortraits, setModelPortraits] = useState<Record<string, string>>({})
   const [generatingPortrait, setGeneratingPortrait] = useState<string | null>(null)
+  const [portraitGenProgress, setPortraitGenProgress] = useState<{ current: number; total: number; isRunning: boolean; failed: number; errors: string[] }>({ current: 0, total: 0, isRunning: false, failed: 0, errors: [] })
+  const portraitGenStarted = useRef(false)
+
+  // Auto-generate all model portraits on first load
+  useEffect(() => {
+    if (portraitGenStarted.current) return
+    portraitGenStarted.current = true
+
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+    const generateSinglePortrait = async (model: AIModelType, retryCount = 0): Promise<boolean> => {
+      const MAX_RETRIES = 2
+
+      try {
+        const promptMessage = `Generate a professional model agency headshot portrait photo of a fashion model.
+
+Model: ${model.name}
+Gender: ${model.gender}
+Ethnicity: ${model.ethnicity}
+Age: ${model.ageRange}
+Look: ${model.description}
+
+Create a photorealistic chest-up portrait with studio lighting and neutral background.`
+
+        const result = await callAIAgent(promptMessage, AGENT_ID)
+
+        if (result?.success) {
+          const artifactFiles = result?.module_outputs?.artifact_files
+          let imageUrl = ''
+          if (Array.isArray(artifactFiles) && artifactFiles.length > 0) {
+            imageUrl = artifactFiles[0]?.file_url ?? ''
+          }
+          if (imageUrl) {
+            setModelPortraits((prev) => ({ ...prev, [model.id]: imageUrl }))
+            return true
+          }
+        }
+
+        // If not successful and we have retries left, retry after a delay
+        const errorMsg = result?.error || result?.response?.message || 'No image returned'
+        if (retryCount < MAX_RETRIES) {
+          await delay(3000 * (retryCount + 1))
+          return generateSinglePortrait(model, retryCount + 1)
+        }
+
+        setPortraitGenProgress((prev) => ({
+          ...prev,
+          failed: prev.failed + 1,
+          errors: [...prev.errors.slice(-4), `${model.name}: ${errorMsg}`],
+        }))
+        return false
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Network error'
+        if (retryCount < MAX_RETRIES) {
+          await delay(3000 * (retryCount + 1))
+          return generateSinglePortrait(model, retryCount + 1)
+        }
+        setPortraitGenProgress((prev) => ({
+          ...prev,
+          failed: prev.failed + 1,
+          errors: [...prev.errors.slice(-4), `${model.name}: ${errorMsg}`],
+        }))
+        return false
+      }
+    }
+
+    const generateAllPortraits = async () => {
+      const modelsToGenerate = AI_MODELS.filter((m) => !modelPortraits[m.id])
+      if (modelsToGenerate.length === 0) return
+
+      setPortraitGenProgress({ current: 0, total: modelsToGenerate.length, isRunning: true, failed: 0, errors: [] })
+
+      for (let i = 0; i < modelsToGenerate.length; i++) {
+        const model = modelsToGenerate[i]
+        setGeneratingPortrait(model.id)
+        setPortraitGenProgress((prev) => ({ ...prev, current: i + 1 }))
+
+        await generateSinglePortrait(model)
+
+        // Add a small delay between requests to avoid rate limiting
+        if (i < modelsToGenerate.length - 1) {
+          await delay(2000)
+        }
+      }
+
+      setGeneratingPortrait(null)
+      setPortraitGenProgress((prev) => ({ ...prev, isRunning: false }))
+    }
+
+    generateAllPortraits()
+  }, [])
 
   // Sample data effect
   useEffect(() => {
@@ -1274,23 +1437,24 @@ export default function Page() {
 
   const handleGeneratePortrait = useCallback(async (model: AIModelType) => {
     setGeneratingPortrait(model.id)
+    setStatusMessage(null)
 
     try {
-      const promptMessage = `Generate a photorealistic professional model agency headshot/portrait photograph.
+      const promptMessage = `Generate a professional model agency headshot portrait photo of a fashion model.
 
-Model Details:
-- Name: ${model.name}
-- Gender: ${model.gender}
-- Ethnicity: ${model.ethnicity}
-- Age Range: ${model.ageRange}
-- Physical Description: ${model.description}
+Model: ${model.name}
+Gender: ${model.gender}
+Ethnicity: ${model.ethnicity}
+Age: ${model.ageRange}
+Look: ${model.description}
 
-Generate a stunning, photorealistic close-up portrait photograph of this fashion model. The image should look like a professional model agency composite card photo. Use professional portrait lighting (Rembrandt or butterfly lighting), clean neutral studio background, and capture the model from chest up. The portrait should showcase the model's distinctive features as described. Make it look like a real photograph, not an illustration or rendering.`
+Create a photorealistic chest-up portrait with studio lighting and neutral background.`
 
       const result = await callAIAgent(promptMessage, AGENT_ID)
 
       if (!result?.success) {
-        setStatusMessage({ type: 'error', text: `Failed to generate portrait for ${model.name}. Please try again.` })
+        const errorDetail = result?.error || result?.response?.message || 'Unknown error'
+        setStatusMessage({ type: 'error', text: `Failed to generate portrait for ${model.name}: ${errorDetail}` })
         setGeneratingPortrait(null)
         return
       }
@@ -1305,10 +1469,11 @@ Generate a stunning, photorealistic close-up portrait photograph of this fashion
         setModelPortraits(prev => ({ ...prev, [model.id]: imageUrl }))
         setStatusMessage({ type: 'success', text: `Portrait generated for ${model.name}` })
       } else {
-        setStatusMessage({ type: 'error', text: `No portrait image returned for ${model.name}. Please try again.` })
+        setStatusMessage({ type: 'error', text: `No portrait image returned for ${model.name}. The agent may not have generated an image. Please try again.` })
       }
     } catch (err) {
-      setStatusMessage({ type: 'error', text: `An unexpected error occurred generating portrait for ${model.name}.` })
+      const errorDetail = err instanceof Error ? err.message : 'Network error'
+      setStatusMessage({ type: 'error', text: `Error generating portrait for ${model.name}: ${errorDetail}` })
     } finally {
       setGeneratingPortrait(null)
     }
@@ -1521,6 +1686,7 @@ Generate a professional studio-quality fashion photograph showing this exact mod
               modelPortraits={modelPortraits}
               onGeneratePortrait={handleGeneratePortrait}
               generatingPortrait={generatingPortrait}
+              portraitGenProgress={portraitGenProgress}
             />
           )}
           {activeScreen === 'my-generations' && (
